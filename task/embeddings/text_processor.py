@@ -46,6 +46,7 @@ class TextProcessor:
             truncate_table: truncate table if true
             dimensions: number of dimensions to store
         """
+
         if chunk_size < 10:
             raise ValueError("chunk_size must be at least 10")
         if overlap < 0:
@@ -53,45 +54,43 @@ class TextProcessor:
         if overlap >= chunk_size:
             raise ValueError("overlap should be lower than chunkSize")
 
-        # TODO:
-        #  1. Truncate table if truncate_table == True (call the `_truncate_table()` method)
-        #  2. Open file and get content:
-        #       a. with open(file_name, 'r', encoding='utf-8') as file:
-        #       b. assign file.read() to `content`
-        #  3. Generate text chunks from `content`, use method `chunk_text()`
-        #  4. Generate dict with indexed embeddings for generated `chunks` via `embeddings_client.get_embeddings()`
-        #     and assign them to `embeddings` variable
+        if truncate_table:
+            self._truncate_table()
+
+        with open(file_name, 'r', encoding='utf-8') as file:
+            content = file.read()
+
+        chunks: list[str] = chunk_text(content, chunk_size, overlap)
+        embeddings: dict[int, list[float]] = self.embeddings_client.get_embeddings(chunks, dimensions)
 
         print(f"Processing document: {file_name}")
         print(f"Total chunks: {len(chunks)}")
         print(f"Total embeddings: {len(embeddings)}")
 
-        # TODO:
-        #  1. Iterate through len of `chunks` (for i in range(len(chunks)))
-        #  2. Save chunk with corresponding embedding to DB (use `_save_chunk()` method)
-
+        for i in range(len(chunks)):
+            self._save_chunk(embeddings.get(i), chunks[i], file_name)
 
     def _truncate_table(self):
         """Truncate the vectors table"""
-        # TODO:
-        #  1. Open connection (with self._get_connection() as conn)
-        #  2. Get `cursor` (with conn.cursor() as cursor)
-        #  3. Execute query `TRUNCATE TABLE vectors` with `cursor`
-        #  4. Make connection commit
+        with self._get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("TRUNCATE TABLE vectors")
+                conn.commit()
+                print("Table has been successfully truncated.")
 
     def _save_chunk(self, embedding: list[float], chunk: str, document_name: str):
         """Save chunk with embedding to database"""
-        # TODO:
-        #  1. Need convert embeddings list[float] to string and wrap embeddings into []
-        #       - f"[{','.join(map(str, embedding))}]"
-        #       - assign to `vector_string` variable
-        #  2. Open connection to DB
-        #  3. Get `cursor`
-        #  4. Execute query:
-        #       - query: INSERT INTO vectors (document_name, text, embedding) VALUES (%s, %s, %s::vector)
-        #       - vars: (document_name, chunk, vector_string)
-        #  5. Make connection commit
+        vector_string = f"[{','.join(map(str, embedding))}]"
 
+        with self._get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO vectors (document_name, text, embedding) VALUES (%s, %s, %s::vector)",
+                    (document_name, chunk, vector_string)
+                )
+                conn.commit()
+
+        print(f"Stored chunk from document: {document_name}")
 
 
     def search(
@@ -103,7 +102,7 @@ class TextProcessor:
             dimensions: int = 1536
     ) -> list[str]:
         """
-        Performs similarity search
+        Perform similarity search
         Args:
             search_mode: Search mode (Cosine or Euclidian distance)
             user_request: User request
@@ -111,27 +110,20 @@ class TextProcessor:
             min_score: Minimum score to return (range 0.0 -> 1.0)
             dimensions: Number of dimensions to return (has to be the same as data persisted in VectorDB)
         """
+
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
         if min_score < 0 or min_score > 1:
             raise ValueError("min_score must be in [0.0..., 0.99...] range")
 
-        # TODO:
-        #  1. Generate dict with indexed embeddings for generated `chunks` via `embeddings_client.get_embeddings()`.
-        #     With this request we convert original user request into embedding for further vector search in DB.
-        #  2. Need convert embeddings list[float] to string and wrap embeddings into []
-        #       - f"[{','.join(map(str, embedding))}]"
-        #       - assign to `vector_string` variable
+        query_embedding = self.embeddings_client.get_embeddings(inputs=user_request, dimensions=dimensions)[0]
+        vector_string = f"[{','.join(map(str, query_embedding))}]"
 
         retrieved_chunks = []
         with self._get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # TODO:
-                #  1. Execute query:
-                #       - query: Use `_get_search_query(search_mode)` method. Please take a look at query!
-                #       - vars: (vector_string, vector_string, min_score, top_k)
-                #  2. Fetch all results with `cursor` into `results`
-                results = None
+                cursor.execute(self._get_search_query(search_mode), (vector_string, vector_string, min_score, top_k))
+                results = cursor.fetchall()
 
                 for row in results:
                     print(f"---Similarity score: {row['similarity_score']:.2f}---")

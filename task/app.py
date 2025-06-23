@@ -29,18 +29,12 @@ USER_PROMPT = """##RAG CONTEXT:
 
 
 embeddings_client = DialEmbeddingsClient(
-    # TODO:
-    #  Add:
-    #  - deployment_name: `text-embedding-3-large-1` or `text-embedding-3-small-1`, all embedding models you can find
-    #    here https://ai-proxy.lab.epam.com/openai/models
-    #  - api_key: API_KEY
+    deployment_name='text-embedding-3-large-1',
+    api_key=API_KEY
 )
 completion_client = DialChatCompletionClient(
-    # TODO:
-    #  Add:
-    #  - deployment_name: `gpt-4o-2024-08-06` or `gemini-2.5-pro-preview-03-25`, all chat completion models you can find
-    #    here https://ai-proxy.lab.epam.com/openai/models
-    #  - api_key: API_KEY
+    deployment_name='gpt-4o-2024-08-06',
+    api_key=API_KEY
 )
 
 text_processor = TextProcessor(
@@ -58,15 +52,13 @@ text_processor = TextProcessor(
 def main():
     print("🎯 Microwave RAG Assistant")
     print("="*100)
-
     load_context = input("\nLoad context to VectorDB (y/n)? > ").strip()
     if load_context.lower().strip() in ['y', 'yes']:
-        # TODO:
-        #  With `text_processor` process text file:
-        #  - file_name: 'embeddings/microwave_manual.txt'
-        #  - chunk_size: 150 (or you can experiment, usually we set it as 300)
-        #  - overlap: 40 (chars overlap from previous chunk)
-
+        text_processor.process_text_file(
+            file_name='embeddings/microwave_manual.txt',
+            chunk_size=150,
+            overlap=40
+        )
         print("="*100)
 
     conversation = Conversation()
@@ -83,40 +75,27 @@ def main():
 
         # Step 1: Retrieval
         print(f"{'=' * 100}\n🔍 STEP 1: RETRIEVAL\n{'-' * 100}")
-        # TODO:
-        #  Get `context` by `user_request` via `text_processor.search()`:
-        #  - search_mode: SearchMode.COSINE_DISTANCE or SearchMode.EUCLIDIAN_DISTANCE (experiment with different)
-        #  - user_request: user_request
-        #  - top_k: 5 (limit of searched results in VectorDB), experiment with different numbers
-        #  - min_score: 0.5 (experiment with different numbers, 0.1 -> 0.99)
-        context = None
-
+        context = text_processor.search(
+            search_mode=SearchMode.COSINE_DISTANCE,
+            user_request=user_request,
+            top_k=5,
+            min_score=0.5
+        )
 
         # Step 2: Augmentation
         print(f"\n{'=' * 100}\n🔗 STEP 2: AUGMENTATION\n{'-' * 100}")
-        # TODO:
-        #  1. Make Augmentation:
-        #       - format USER_PROMPT:
-        #           - context="\n\n".join(context)
-        #           - query=user_request
-        #       - assign to `augmented_prompt`
-        #  2. Add User message with Augmented content to `conversation`
-        augmented_prompt = None
-
+        augmented_prompt = USER_PROMPT.format(context="\n\n".join(context), query=user_request)
+        conversation.add_message(
+            Message(Role.USER, augmented_prompt)
+        )
         print(f"Prompt:\n{augmented_prompt}")
-
 
         # Step 3: Generation
         print(f"\n{'=' * 100}\n🤖 STEP 3: GENERATION\n{'-' * 100}")
-        # TODO:
-        #  1. Call `completion_client.get_completion()` with message history from conversation, and assign to `ai_message`
-        #  2. Add AI message to `conversation` history
+        ai_message = completion_client.get_completion(conversation.get_messages())
         print(f"✅ RESPONSE:\n{ai_message.content}")
         print("=" * 100)
+        conversation.add_message(ai_message)
 
-# TODO:
-#  PAY ATTENTION THAT YOU NEED TO RUN Postgres DB ON THE 5433 WITH PGVECTOR EXTENSION!
-#  RUN docker-compose.yml
 
-# APPLICATION ENTRY POINT
 main()
