@@ -29,11 +29,11 @@ USER_PROMPT = """##RAG CONTEXT:
 
 
 embeddings_client = DialEmbeddingsClient(
-    deployment_name='text-embedding-3-large-1',
+    deployment_name='text-embedding-3-small-1',
     api_key=API_KEY
 )
 completion_client = DialChatCompletionClient(
-    deployment_name='gpt-4o-2024-08-06',
+    deployment_name='gpt-4o',
     api_key=API_KEY
 )
 
