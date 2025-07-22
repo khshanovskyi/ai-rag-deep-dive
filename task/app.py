@@ -31,15 +31,13 @@ USER_PROMPT = """##RAG CONTEXT:
 embeddings_client = DialEmbeddingsClient(
     # TODO:
     #  Add:
-    #  - deployment_name: `text-embedding-3-large-1` or `text-embedding-3-small-1`, all embedding models you can find
-    #    here https://ai-proxy.lab.epam.com/openai/models
+    #  - deployment_name: 'text-embedding-3-small-1'
     #  - api_key: API_KEY
 )
 completion_client = DialChatCompletionClient(
     # TODO:
     #  Add:
-    #  - deployment_name: `gpt-4o-2024-08-06` or `gemini-2.5-pro-preview-03-25`, all chat completion models you can find
-    #    here https://ai-proxy.lab.epam.com/openai/models
+    #  - deployment_name: 'gpt-4o'
     #  - api_key: API_KEY
 )
 
