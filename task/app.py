@@ -115,6 +115,8 @@ def main():
 # TODO:
 #  PAY ATTENTION THAT YOU NEED TO RUN Postgres DB ON THE 5433 WITH PGVECTOR EXTENSION!
 #  RUN docker-compose.yml
+#  Optional: Try to change `dimensions` parameter and check what impact it will have on the `score` while searching.
+#            (You need to change it in the `init.sql` and on the chunk generations + retrieval step)
 
 # APPLICATION ENTRY POINT
 main()
