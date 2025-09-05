@@ -66,6 +66,8 @@ The RAG system follows a three-step process:
 
 ## 📝 Your Tasks
 
+### If the task in the main branch is hard for you, then switch to the `with-detailed-description` branch
+
 Complete the implementation by filling in all the TODO sections across these files:
 
 ### 🔌 **Step 1: Embeddings Client (`embeddings_client.py`)**

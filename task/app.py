@@ -86,7 +86,8 @@ def main():
         #  - search_mode: SearchMode.COSINE_DISTANCE or SearchMode.EUCLIDIAN_DISTANCE (experiment with different)
         #  - user_request: user_request
         #  - top_k: 5 (limit of searched results in VectorDB), experiment with different numbers
-        #  - min_score: 0.5 (experiment with different numbers, 0.1 -> 0.99)
+        #  - score_threshold: 0.5 (experiment with different numbers, 0.1 -> 0.99)
+        #  - dimensions=384
         context = None
 
 
