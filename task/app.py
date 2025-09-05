@@ -29,7 +29,7 @@ USER_PROMPT = """##RAG CONTEXT:
 
 
 embeddings_client = DialEmbeddingsClient(
-    deployment_name='text-embedding-3-small-1',
+    deployment_name='text-embedding-005',
     api_key=API_KEY
 )
 completion_client = DialChatCompletionClient(
@@ -56,8 +56,9 @@ def main():
     if load_context.lower().strip() in ['y', 'yes']:
         text_processor.process_text_file(
             file_name='embeddings/microwave_manual.txt',
-            chunk_size=150,
-            overlap=40
+            chunk_size=400,
+            overlap=40,
+            dimensions=384
         )
         print("="*100)
 
@@ -76,10 +77,11 @@ def main():
         # Step 1: Retrieval
         print(f"{'=' * 100}\n🔍 STEP 1: RETRIEVAL\n{'-' * 100}")
         context = text_processor.search(
-            search_mode=SearchMode.COSINE_DISTANCE,
+            search_mode=SearchMode.EUCLIDIAN_DISTANCE,
             user_request=user_request,
             top_k=5,
-            min_score=0.5
+            score_threshold=0.01,
+            dimensions=384
         )
 
         # Step 2: Augmentation

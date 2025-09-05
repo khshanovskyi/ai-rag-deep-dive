@@ -23,6 +23,20 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
 -- This allows the user to use auto-incrementing IDs in the tables
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;
 
+-- HNSW Index for Euclidean Distance (L2)
+-- HNSW generally provides better query performance than IVFFlat
+-- m=16: Number of bidirectional links for each node (higher = better recall, more memory)
+-- ef_construction=64: Size of dynamic candidate list during index construction (higher = better quality, slower build)
+CREATE INDEX IF NOT EXISTS vectors_embedding_l2_hnsw_idx
+    ON vectors USING hnsw (embedding vector_l2_ops)
+    WITH (m = 16, ef_construction = 64);
+
+-- HNSW Index for Cosine Distance
+-- Use this index when performing cosine similarity searches
+-- Same parameters as L2 index for consistency
+CREATE INDEX IF NOT EXISTS vectors_embedding_cosine_hnsw_idx
+    ON vectors USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 -- Example of how to insert data with embeddings (commented for reference)
 -- In production, embeddings would be generated from text using AI models

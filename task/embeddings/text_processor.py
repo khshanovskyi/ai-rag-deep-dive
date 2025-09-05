@@ -34,8 +34,8 @@ class TextProcessor:
             file_name: str,
             chunk_size: int,
             overlap: int,
+            dimensions: int,
             truncate_table: bool = True,
-            dimensions: int = 1536,
     ):
         """
         Load content from file, chunk it, generate embeddings, and save to DB
@@ -43,8 +43,8 @@ class TextProcessor:
             file_name: path to file
             chunk_size: chunk size (min 10 chars)
             overlap: overlap chars between chunks
-            truncate_table: truncate table if true
             dimensions: number of dimensions to store
+            truncate_table: truncate table if true
         """
 
         if chunk_size < 10:
@@ -98,8 +98,8 @@ class TextProcessor:
             search_mode: SearchMode,
             user_request: str,
             top_k: int,
-            min_score: float,
-            dimensions: int = 1536
+            score_threshold: float,
+            dimensions: int
     ) -> list[str]:
         """
         Perform similarity search
@@ -107,35 +107,44 @@ class TextProcessor:
             search_mode: Search mode (Cosine or Euclidian distance)
             user_request: User request
             top_k: Number of results to return
-            min_score: Minimum score to return (range 0.0 -> 1.0)
+            score_threshold: Minimum score to return (range 0.0 -> 1.0)
             dimensions: Number of dimensions to return (has to be the same as data persisted in VectorDB)
         """
 
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
-        if min_score < 0 or min_score > 1:
-            raise ValueError("min_score must be in [0.0..., 0.99...] range")
+        if score_threshold < 0 or score_threshold > 1:
+            raise ValueError("score_threshold must be in [0.0..., 0.99...] range")
 
         query_embedding = self.embeddings_client.get_embeddings(inputs=user_request, dimensions=dimensions)[0]
         vector_string = f"[{','.join(map(str, query_embedding))}]"
 
+        if search_mode == SearchMode.COSINE_DISTANCE:
+            max_distance = 1.0 - score_threshold
+        else:
+            max_distance = float('inf') if score_threshold == 0 else (1.0 / score_threshold) - 1.0
+
         retrieved_chunks = []
         with self._get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(self._get_search_query(search_mode), (vector_string, vector_string, min_score, top_k))
+                cursor.execute(self._get_search_query(search_mode), (vector_string, vector_string, max_distance, top_k))
                 results = cursor.fetchall()
 
                 for row in results:
-                    print(f"---Similarity score: {row['similarity_score']:.2f}---")
+                    if search_mode == SearchMode.COSINE_DISTANCE:
+                        similarity = 1.0 - row['distance']
+                    else:
+                        similarity = 1.0 / (1.0 + row['distance'])
+
+                    print(f"---Similarity score: {similarity:.2f}---")
                     print(f"Data: {row['text']}\n")
                     retrieved_chunks.append(row['text'])
 
         return retrieved_chunks
 
     def _get_search_query(self, search_mode: SearchMode) -> str:
-        return """SELECT text, 1 - (embedding {mode} %s::vector) / 2 AS similarity_score
+        return """SELECT text, embedding {mode} %s::vector AS distance
                   FROM vectors
-                  WHERE 1 - (embedding {mode} %s::vector) / 2 >= %s
-                  ORDER BY similarity_score DESC
-                  LIMIT %s \
-                  """.format(mode='<->' if search_mode == SearchMode.EUCLIDIAN_DISTANCE else '<=>')
+                  WHERE embedding {mode} %s::vector <= %s
+                  ORDER BY distance
+                  LIMIT %s""".format(mode='<->' if search_mode == SearchMode.EUCLIDIAN_DISTANCE else '<=>')
